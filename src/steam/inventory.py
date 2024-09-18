@@ -49,12 +49,12 @@ class SteamAPI:
         try:
             for attempt in range(self.max_attempts):
                 try:
-                    if attempt > 0:
-                        proxy = await self.proxy_manager.get_random_proxy()
-                        write_log("info", f"[SteamAPI] Attempting to get user inventory with proxy: {proxy}")
-                    elif attempt > self.max_attempts / 2:
+                    if attempt > self.max_attempts / 2:
                         proxy = await self.proxy_manager.get_working_proxy()
                         write_log("info", f"[SteamAPI] Attempting to get user inventory with working proxy: {proxy}")
+                    elif attempt > 0:
+                        proxy = await self.proxy_manager.get_random_proxy()
+                        write_log("info", f"[SteamAPI] Attempting to get user inventory with proxy: {proxy}")
                     else:
                         proxy = None
                         write_log("info", "[SteamAPI] Attempting to get user inventory without proxy")
