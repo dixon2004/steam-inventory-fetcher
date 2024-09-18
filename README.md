@@ -178,7 +178,7 @@ Replace `<port>` with the port number from your `.env` file or the one chosen by
 
 ## TF2Autobot Integration
 
-To integrate **Steam Inventory Fetcher** with **TF2Autobot**:
+To integrate **Steam Inventory Fetcher** with [**TF2Autobot**](https://github.com/TF2Autobot/tf2autobot):
 
 1. **Update Inventory Fetch Logic**:
    - Open `tf2autobot/src/classes/InventoryApis/SteamApis.ts`.
