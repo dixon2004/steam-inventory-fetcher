@@ -67,6 +67,7 @@ class SteamAPI:
                     url = f"{self.inventory_url}/{steamID64}/{appID}/{contextID}?l=english&count={count}"
                     response = await self.call(url, proxy)
                     if not response:
+                        write_log("error", "[SteamAPI] Failed to get user inventory: No response")
                         continue
 
                     if isinstance(response, int):
@@ -81,13 +82,19 @@ class SteamAPI:
                                 self.proxy_manager.remove_proxy_from_list(proxy)
                             continue
                         else:
+                            write_log("error", f"[SteamAPI] Failed to get user inventory: Unexpected response code {response}")
                             if proxy:
                                 self.proxy_manager.add_cooldown_proxy(proxy)
                             break
 
+                    if not isinstance(response, dict):
+                        write_log("error", "[SteamAPI] Failed to get user inventory: Invalid response")
+                        continue
+
                     self.proxy_manager.add_working_proxy(proxy)
                     return response
                 except Exception as e:
+                    write_log("error", f"[SteamAPI] Exception during inventory fetch on attempt {attempt}: {e}")
                     continue
         except Exception as e:
             write_log("error", f"[SteamAPI] Failed to get user inventory: {e}")
