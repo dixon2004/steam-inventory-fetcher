@@ -20,6 +20,11 @@ async def get_steam_inventory(steamID64, appID, contextID, api_key=None):
         auth.check_auth_token(api_key)
 
         inventory_data = await asyncio.wait_for(steam.get_user_inventory(steamID64, appID, contextID), timeout=60)
+
+        if not inventory_data:
+            write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): No data found.")
+            raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory ({steamID64}): No data found.")
+
         inventory_data["steamID"] = str(steamID64)
         inventory_data["appID"] = int(appID)
         inventory_data["contextID"] = int(contextID)
@@ -30,8 +35,8 @@ async def get_steam_inventory(steamID64, appID, contextID, api_key=None):
         write_log("error", f"Timeout while fetching user's steam inventory ({steamID64})")
         raise HTTPException(status_code=504, detail=f"Timeout while fetching user's steam inventory ({steamID64})")       
     except Exception as e:
-        write_log("error", f"Failed to fetch user's steam inventory: {e}")
-        raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory: {e}")
+        write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): {e}")
+        raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory ({steamID64}): {e}")
 
 
 if __name__ == "__main__":
