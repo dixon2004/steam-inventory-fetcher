@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+
+  steam-inventory-fetcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn main:app --host 0.0.0.0 --port 8080
+    working_dir: /apps/steam-inventory-fetcher/src
+    restart: unless-stopped
+    environment:
+      WEBSHARE_API_KEY: ${WEBSHARE_API_KEY}
+      AUTH_TOKEN: ${AUTH_TOKEN}
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+
+networks:
+  app-network:
+    driver: bridge

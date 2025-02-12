@@ -1,5 +1,5 @@
 from proxy.manager import ProxyManager
-from utils.log import write_log
+from utils.logger import SyncLogger
 import aiohttp
 
 
@@ -9,6 +9,7 @@ class SteamAPI:
         """
         Initialize Steam API.
         """
+        self.logger = SyncLogger("SteamAPI")
         self.proxy_manager = ProxyManager()
 
         self.inventory_url = "http://steamcommunity.com/inventory/"
@@ -33,7 +34,7 @@ class SteamAPI:
                     
                     return await response.json()
         except Exception as e:
-            write_log("error", f"[SteamAPI] Failed to call API: {e}")
+            self.logger.write_log("error", f"Failed to call API: {e}")
 
 
     async def get_user_inventory(self, steamID64: str, appID: str, contextID: str) -> dict:
@@ -51,13 +52,13 @@ class SteamAPI:
                 try:
                     if attempt > self.max_attempts / 2:
                         proxy = await self.proxy_manager.get_working_proxy()
-                        write_log("info", f"[SteamAPI] Attempting to get user inventory with working proxy: {proxy}")
+                        self.logger.write_log("info", f"Attempting to get user inventory with working proxy: {proxy}")
                     elif attempt > 0:
                         proxy = await self.proxy_manager.get_random_proxy()
-                        write_log("info", f"[SteamAPI] Attempting to get user inventory with proxy: {proxy}")
+                        self.logger.write_log("info", f"Attempting to get user inventory with proxy: {proxy}")
                     else:
                         proxy = None
-                        write_log("info", "[SteamAPI] Attempting to get user inventory without proxy")
+                        self.logger.write_log("info", "Attempting to get user inventory without proxy")
 
                     if appID == 440:
                         count = 3000
@@ -67,34 +68,34 @@ class SteamAPI:
                     url = f"{self.inventory_url}/{steamID64}/{appID}/{contextID}?l=english&count={count}"
                     response = await self.call(url, proxy)
                     if not response:
-                        write_log("error", "[SteamAPI] Failed to get user inventory: No response")
+                        self.logger.write_log("error", "Failed to get user inventory: No response")
                         continue
 
                     if isinstance(response, int):
                         if response == 429:
-                            write_log("error", "[SteamAPI] Failed to get user inventory: Rate limit exceeded")
+                            self.logger.write_log("error", "Failed to get user inventory: Rate limit exceeded")
                             if proxy:
                                 self.proxy_manager.add_cooldown_proxy(proxy)
                             continue
                         elif response == 407:
-                            write_log("error", "[SteamAPI] Failed to get user inventory: Proxy authentication required")
+                            self.logger.write_log("error", "Failed to get user inventory: Proxy authentication required")
                             if proxy:
                                 self.proxy_manager.remove_proxy_from_list(proxy)
                             continue
                         else:
-                            write_log("error", f"[SteamAPI] Failed to get user inventory: Unexpected response code {response}")
+                            self.logger.write_log("error", f"Failed to get user inventory: Unexpected response code {response}")
                             if proxy:
                                 self.proxy_manager.add_cooldown_proxy(proxy)
                             break
 
                     if not isinstance(response, dict):
-                        write_log("error", "[SteamAPI] Failed to get user inventory: Invalid response")
+                        self.logger.write_log("error", "Failed to get user inventory: Invalid response")
                         continue
 
                     self.proxy_manager.add_working_proxy(proxy)
                     return response
                 except Exception as e:
-                    write_log("error", f"[SteamAPI] Exception during inventory fetch on attempt {attempt}: {e}")
+                    self.logger.write_log("error", f"Exception during inventory fetch on attempt {attempt}: {e}")
                     continue
         except Exception as e:
-            write_log("error", f"[SteamAPI] Failed to get user inventory: {e}")
+            self.logger.write_log("error", f"Failed to get user inventory: {e}")

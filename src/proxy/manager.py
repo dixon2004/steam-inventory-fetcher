@@ -1,5 +1,5 @@
 from proxy.webshare import WebshareAPI
-from utils.log import write_log
+from utils.logger import SyncLogger
 import random
 import time
 
@@ -10,6 +10,7 @@ class ProxyManager:
         """
         Initialize Proxy Manager.
         """
+        self.logger = SyncLogger("ProxyManager")
         self.webshare = WebshareAPI()
 
         self.proxies = None
@@ -31,12 +32,12 @@ class ProxyManager:
             if not self.proxies or (time.time() - self.proxies["timestamp"]) > self.refresh_interval:
                 proxies = await self.webshare.get_proxy_list()
                 if not proxies:
-                    raise Exception("[ProxyManager] Failed to get proxy list")
+                    raise Exception("Empty proxy list from the API")
                 self.proxies = {"timestamp": time.time(), "proxies": proxies}
 
             return self.proxies["proxies"]
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to get proxy list: {e}")
+            self.logger.write_log("error", f"Failed to get proxy list: {e}")
     
 
     async def get_random_proxy(self) -> str:
@@ -54,7 +55,7 @@ class ProxyManager:
             proxies = self.proxies["proxies"]
             return random.choice(proxies)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to get random proxy: {e}")
+            self.logger.write_log("error", f"Failed to get random proxy: {e}")
 
 
     def remove_proxy_from_list(self, proxy: str) -> None:
@@ -68,7 +69,7 @@ class ProxyManager:
             if proxy in self.proxies["proxies"]:
                 self.proxies["proxies"].remove(proxy)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to remove proxy from list: {e}")
+            self.logger.write_log("error", f"Failed to remove proxy from list: {e}")
 
 
     async def get_working_proxy(self) -> str:
@@ -84,7 +85,7 @@ class ProxyManager:
 
             return random.choice(self.working_proxies)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to get working proxy: {e}")
+            self.logger.write_log("error", f"Failed to get working proxy: {e}")
 
 
     def add_working_proxy(self, proxy: str) -> None:
@@ -100,7 +101,7 @@ class ProxyManager:
 
             self.remove_cooldown_proxy(proxy)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to add working proxy: {e}")
+            self.logger.write_log("error", f"Failed to add working proxy: {e}")
 
 
     def remove_working_proxy(self, proxy: str) -> None:
@@ -114,7 +115,7 @@ class ProxyManager:
             if proxy in self.working_proxies:
                 self.working_proxies.remove(proxy)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to remove working proxy: {e}")
+            self.logger.write_log("error", f"Failed to remove working proxy: {e}")
 
 
     def add_cooldown_proxy(self, proxy: str) -> None:
@@ -130,7 +131,7 @@ class ProxyManager:
 
             self.remove_working_proxy(proxy)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to add cooldown proxy: {e}")
+            self.logger.write_log("error", f"Failed to add cooldown proxy: {e}")
 
 
     def remove_cooldown_proxy(self, proxy: str) -> None:
@@ -145,7 +146,7 @@ class ProxyManager:
                 if cooldown_proxy["proxy"] == proxy:
                     self.cooldown_proxies.remove(cooldown_proxy)
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to remove cooldown proxy: {e}")
+            self.logger.write_log("error", f"Failed to remove cooldown proxy: {e}")
 
 
     def check_cooldown_proxies(self) -> None:
@@ -157,4 +158,4 @@ class ProxyManager:
                 current_time = time.time()
                 self.cooldown_proxies = [p for p in self.cooldown_proxies if current_time - p['timestamp'] < self.cooldown_period]
         except Exception as e:
-            write_log("error", f"[ProxyManager] Failed to check cooldown proxies: {e}")
+            self.logger.write_log("error", f"Failed to check cooldown proxies: {e}")

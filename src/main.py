@@ -1,54 +1,47 @@
 from fastapi import FastAPI, HTTPException
 from utils.token import AuthorizationToken
-from utils.config import WEBSHARE_API_KEY
-from utils.port import PortConfiguration
 from steam.inventory import SteamAPI
-from utils.log import write_log
+from utils.logger import SyncLogger
 import asyncio
-import uvicorn
 
 
 app = FastAPI()
 steam = SteamAPI()
 auth = AuthorizationToken()
-port_config = PortConfiguration()
-        
+logger = SyncLogger("SteamInventoryFetcherAPI")
+
+
+@app.get("/health")
+async def health_check():
+    try:
+        return {"status": "ok"}
+    except Exception as e:
+        logger.write_log("error", f"Failed to perform health check: {e}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {e}")
+
 
 @app.get("/steam/inventory/{steamID64}/{appID}/{contextID}")
-async def get_steam_inventory(steamID64, appID, contextID, api_key=None):
+async def get_steam_inventory(steamID64, appID, contextID, api_key=""):
     try:
-        auth.check_auth_token(api_key)
+        if not auth.check_auth_token(api_key):
+            logger.write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): Invalid API key")
+            raise HTTPException(status_code=401, detail="Invalid API key")
 
         inventory_data = await asyncio.wait_for(steam.get_user_inventory(steamID64, appID, contextID), timeout=60)
 
         if not inventory_data:
-            write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): No data found.")
-            raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory ({steamID64}): No data found.")
+            logger.write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): No data found")
+            raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory ({steamID64}): No data found")
 
         inventory_data["steamID"] = str(steamID64)
         inventory_data["appID"] = int(appID)
         inventory_data["contextID"] = int(contextID)
 
-        write_log("info", f"Successfully fetched user's steam inventory ({steamID64})")
+        logger.write_log("info", f"Successfully fetched user's steam inventory ({steamID64})")
         return inventory_data
     except asyncio.TimeoutError:
-        write_log("error", f"Timeout while fetching user's steam inventory ({steamID64})")
+        logger.write_log("error", f"Timeout while fetching user's steam inventory ({steamID64})")
         raise HTTPException(status_code=504, detail=f"Timeout while fetching user's steam inventory ({steamID64})")       
     except Exception as e:
-        write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): {e}")
+        logger.write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): {e}")
         raise HTTPException(status_code=404, detail=f"Failed to fetch user's steam inventory ({steamID64}): {e}")
-
-
-if __name__ == "__main__":
-
-    if not WEBSHARE_API_KEY:
-        write_log("error", "Webshare API key is not set.")
-        exit(1)
-
-    port = port_config.get_port()
-    if not port:
-        write_log("error", "No available port found.")
-        exit(1)
-
-    write_log("info", f"Starting the API server on port {port}.")
-    uvicorn.run(app, host="127.0.0.1", port=port)

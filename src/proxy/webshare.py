@@ -1,5 +1,5 @@
 from utils.config import WEBSHARE_API_KEY
-from utils.log import write_log
+from utils.logger import SyncLogger
 import aiohttp
 
 
@@ -9,6 +9,9 @@ class WebshareAPI:
         """
         Initialize Webshare API.
         """
+        self.logger = SyncLogger("WebshareAPI")
+
+        self.token = WEBSHARE_API_KEY
         self.proxy_list_url = "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page_size=100"
 
 
@@ -24,10 +27,10 @@ class WebshareAPI:
         """
         try:
             async with aiohttp.ClientSession(raise_for_status=True) as session:
-                async with session.get(url, headers={"Authorization": f"Token {WEBSHARE_API_KEY}"}) as response:
+                async with session.get(url, headers={"Authorization": f"Token {self.token}"}) as response:
                     return await response.json()
         except Exception as e:
-            write_log("error", f"[WebshareAPI] Failed to call API: {e}")
+            self.logger.write_log("error", f"Failed to call API: {e}")
 
 
     async def get_proxy_list(self) -> list:
@@ -42,7 +45,7 @@ class WebshareAPI:
                 url = f"{self.proxy_list_url}&page={page}"
                 response = await self.call(url)
                 if not response:
-                    raise Exception("[WebshareAPI] Failed to get proxy list")
+                    raise Exception("Empty response from the API")
                 
                 data = response.get("results")
                 if not data:
@@ -60,4 +63,4 @@ class WebshareAPI:
 
             return list(proxies)
         except Exception as e:
-            write_log("error", f"[WebshareAPI] Failed to get proxy list: {e}")
+            self.logger.write_log("error", f"Failed to get proxy list: {e}")
