@@ -37,7 +37,7 @@ async def get_steam_inventory(steamID64, appID, contextID, api_key=""):
         inventory_data["appID"] = int(appID)
         inventory_data["contextID"] = int(contextID)
 
-        logger.write_log("info", f"Successfully fetched user's steam inventory ({steamID64})")
+        logger.write_log("info", f"Successfully fetched user's steam inventory ({steamID64}) with {len(inventory_data.get('assets', []))} items")
         return inventory_data
     except asyncio.TimeoutError:
         logger.write_log("error", f"Timeout while fetching user's steam inventory ({steamID64})")

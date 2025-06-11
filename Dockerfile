@@ -1,13 +1,15 @@
-FROM python:3.10.10-slim
+FROM python:3.12-slim
 
 WORKDIR /apps/steam-inventory-fetcher
 
 COPY . .
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
     pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get purge -y --auto-remove curl && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /apps/steam-inventory-fetcher/src
 
