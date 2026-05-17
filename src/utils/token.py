@@ -5,22 +5,19 @@ class AuthorizationToken:
 
     def __init__(self):
         """
-        Initialize Authorization Token.
+        Initializes the AuthorizationToken with the predefined authentication token from the configuration.
         """
         self.auth_token = AUTH_TOKEN
 
 
-    def check_auth_token(self, token) -> bool:
+    def check_auth_token(self, token: str) -> bool:
         """
-        Check Authorization Token.
-        
+        Checks if the provided token matches the predefined authentication token.
+
         Args:
-            token (str): Authorization token.
+            token (str): The token to be checked against the predefined authentication token.
 
         Returns:
-            bool: True if token is valid, False otherwise.
+            bool: True if the provided token matches the predefined authentication token, False otherwise.
         """
-        if token != self.auth_token:
-            return False
-        
-        return True
+        return token == self.auth_token

@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: uvicorn main:app --host 0.0.0.0 --port 8080
-    working_dir: /apps/steam-inventory-fetcher/src
     restart: unless-stopped
     environment:
       WEBSHARE_API_KEY: ${WEBSHARE_API_KEY}
@@ -20,6 +18,11 @@ services:
       retries: 5
       start_period: 10s
       timeout: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   app-network:

@@ -1,32 +1,36 @@
 from proxy.webshare import WebshareAPI
 from utils.logger import SyncLogger
+import aiohttp
 import random
 import time
 
 
 class ProxyManager:
 
-    def __init__(self) -> None:
+    def __init__(self, session: aiohttp.ClientSession) -> None:
         """
-        Initialize Proxy Manager.
+        Initializes the ProxyManager with an aiohttp session and sets up the WebshareAPI client.
+
+        Args:
+            session (aiohttp.ClientSession): An aiohttp session for making HTTP requests.
         """
         self.logger = SyncLogger("ProxyManager")
-        self.webshare = WebshareAPI()
+        self.webshare = WebshareAPI(session)
 
         self.proxies = None
-        self.working_proxies = list()
-        self.cooldown_proxies = list()
+        self.working_proxies = []
+        self.cooldown_proxies = []
 
         self.cooldown_period = 60 * 30
         self.refresh_interval = 60 * 60 * 12
 
-        
-    async def get_proxy_list(self) -> str:
+
+    async def get_proxy_list(self) -> list | None:
         """
-        Get proxy list from cache or Webshare API.
+        Fetches and caches the proxy list from Webshare, refreshing only when empty or stale.
 
         Returns:
-            str: Proxy URL.
+            list | None: A list of proxy URLs, or None if an error occurs.
         """
         try:
             if not self.proxies or (time.time() - self.proxies["timestamp"]) > self.refresh_interval:
@@ -38,32 +42,36 @@ class ProxyManager:
             return self.proxies["proxies"]
         except Exception as e:
             self.logger.write_log("error", f"Failed to get proxy list: {e}")
-    
 
-    async def get_random_proxy(self) -> str:
+
+    async def get_random_proxy(self) -> str | None:
         """
-        Get random proxy from the proxy list.
+        Retrieves a random proxy, skipping any on cooldown. Falls back to the full list if all are cooling down.
 
         Returns:
-            str: Proxy URL.
+            str | None: A random proxy URL, or None if an error occurs.
         """
         try:
             if not self.proxies or (time.time() - self.proxies["timestamp"]) > self.refresh_interval:
                 await self.get_proxy_list()
 
             self.check_cooldown_proxies()
-            proxies = self.proxies["proxies"]
-            return random.choice(proxies)
+            on_cooldown = {p["proxy"] for p in self.cooldown_proxies}
+            available = [p for p in self.proxies["proxies"] if p not in on_cooldown]
+            if not available:
+                available = self.proxies["proxies"]
+
+            return random.choice(available)
         except Exception as e:
             self.logger.write_log("error", f"Failed to get random proxy: {e}")
 
 
     def remove_proxy_from_list(self, proxy: str) -> None:
         """
-        Remove proxy from the proxy list.
+        Removes a proxy from the cached proxy list if it exists.
 
         Args:
-            proxy (str): Proxy URL.
+            proxy (str): The proxy to be removed from the list.
         """
         try:
             if proxy in self.proxies["proxies"]:
@@ -72,12 +80,12 @@ class ProxyManager:
             self.logger.write_log("error", f"Failed to remove proxy from list: {e}")
 
 
-    async def get_working_proxy(self) -> str:
+    async def get_working_proxy(self) -> str | None:
         """
-        Get working proxy from the proxy list.
+        Returns a known working proxy, or falls back to a random proxy if none are available.
 
         Returns:
-            str: Proxy URL.
+            str | None: A proxy URL, or None if an error occurs.
         """
         try:
             if not self.working_proxies:
@@ -90,10 +98,10 @@ class ProxyManager:
 
     def add_working_proxy(self, proxy: str) -> None:
         """
-        Add working proxy to the working proxy list.
+        Adds a proxy to the list of working proxies and removes it from the cooldown list if it exists.
 
         Args:
-            proxy (str): Proxy URL.
+            proxy (str): The proxy to be added to the working list.
         """
         try:
             if proxy not in self.working_proxies:
@@ -106,10 +114,10 @@ class ProxyManager:
 
     def remove_working_proxy(self, proxy: str) -> None:
         """
-        Remove working proxy from the working proxy list.
+        Removes a proxy from the list of working proxies if it exists.
 
         Args:
-            proxy (str): Proxy URL.
+            proxy (str): The proxy to be removed from the working list.
         """
         try:
             if proxy in self.working_proxies:
@@ -120,13 +128,13 @@ class ProxyManager:
 
     def add_cooldown_proxy(self, proxy: str) -> None:
         """
-        Add cooldown proxy to the cooldown proxy list.
-
+        Adds a proxy to the cooldown list with the current timestamp and removes it from the working list if it exists.
+        
         Args:
-            proxy (str): Proxy URL.
+            proxy (str): The proxy to be added to the cooldown list.
         """
         try:
-            if proxy not in self.cooldown_proxies:
+            if not any(p["proxy"] == proxy for p in self.cooldown_proxies):
                 self.cooldown_proxies.append({"proxy": proxy, "timestamp": time.time()})
 
             self.remove_working_proxy(proxy)
@@ -136,22 +144,20 @@ class ProxyManager:
 
     def remove_cooldown_proxy(self, proxy: str) -> None:
         """
-        Remove cooldown proxy from the cooldown proxy list.
+        Removes a proxy from the cooldown list if it exists.
 
         Args:
-            proxy (str): Proxy URL.
+            proxy (str): The proxy to be removed from the cooldown list.
         """
         try:
-            for cooldown_proxy in self.cooldown_proxies:
-                if cooldown_proxy["proxy"] == proxy:
-                    self.cooldown_proxies.remove(cooldown_proxy)
+            self.cooldown_proxies = [p for p in self.cooldown_proxies if p["proxy"] != proxy]
         except Exception as e:
             self.logger.write_log("error", f"Failed to remove cooldown proxy: {e}")
 
 
     def check_cooldown_proxies(self) -> None:
         """
-        Remove proxies from the cooldown list if the cooldown period has expired.
+        Checks the cooldown list and removes any proxies that have been on cooldown for longer than the defined cooldown period.
         """
         try:
             if self.cooldown_proxies:
