@@ -104,6 +104,10 @@ class SteamAPI:
                     self.logger.write_log("error", "Failed to fetch user inventory: Invalid response")
                     continue
 
+                if not response.get("success"):
+                    self.logger.write_log("error", "Failed to fetch user inventory: Steam reported failure")
+                    continue
+
                 if proxy:
                     self.proxy_manager.add_working_proxy(proxy)
 
@@ -136,22 +140,19 @@ class SteamAPI:
 
                 assets = response.get("assets", [])
                 descriptions = response.get("descriptions", [])
-                if not assets and not descriptions:
-                    break
 
                 if not inventory_data:
                     inventory_data = response
-                else:
+                elif assets or descriptions:
                     inventory_data["assets"].extend(assets)
                     inventory_data["descriptions"].extend(descriptions)
+
+                if not assets and not descriptions:
+                    break
 
                 more_items = response.get("more_items", 0)
                 last_assetid = response.get("last_assetid")
                 if more_items < 1 or not last_assetid:
-                    break
-
-                total_inventory_count = response.get("total_inventory_count", 0)
-                if len(inventory_data.get("assets", [])) >= total_inventory_count:
                     break
 
                 start_assetid = last_assetid
