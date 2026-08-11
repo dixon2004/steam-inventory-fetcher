@@ -76,7 +76,7 @@ class SteamAPI:
 
                 headers = {
                     "Referer": f"https://steamcommunity.com/profiles/{steamID64}/inventory",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+                    "User-Agent": "okhttp/4.12.0",
                 }
                 response = await self.call(url, proxy, headers)
                 if not response:
