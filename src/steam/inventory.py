@@ -91,6 +91,9 @@ class SteamAPI:
                     elif response == 400:
                         self.logger.write_log("error", "Failed to fetch user inventory: Bad request")
                         continue
+                    elif response == 403:
+                        self.logger.write_log("error", "Failed to fetch user inventory: Inventory is private")
+                        break
                     else:
                         self.logger.write_log("error", f"Failed to fetch user inventory: Unexpected response code {response}")
                         if proxy:
