@@ -20,19 +20,21 @@ class SteamAPI:
         self.max_attempts = 20
 
 
-    async def call(self, url: str, proxy: str | None = None) -> dict | int | None:
+    async def call(self, url: str, proxy: str | None = None, headers: dict | None = None) -> dict | int | None:
         """
         Makes a GET request and returns the JSON response or HTTP status code on failure.
 
         Args:
             url (str): The request URL.
             proxy (str | None): Optional proxy URL. Defaults to None.
+            headers (dict | None): Optional request headers. Defaults to None.
 
         Returns:
             dict | int | None: JSON response, HTTP status code on non-200, or None on exception.
         """
         try:
-            async with self.session.get(url, proxy=proxy) as response:
+            timeout = aiohttp.ClientTimeout(total=20)
+            async with self.session.get(url, proxy=proxy, headers=headers, timeout=timeout) as response:
                 if response.status != 200:
                     return response.status
 
@@ -72,7 +74,11 @@ class SteamAPI:
                 if start_assetid:
                     url += f"&start_assetid={start_assetid}"
 
-                response = await self.call(url, proxy)
+                headers = {
+                    "Referer": f"https://steamcommunity.com/profiles/{steamID64}/inventory",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+                }
+                response = await self.call(url, proxy, headers)
                 if not response:
                     self.logger.write_log("error", "Failed to fetch user inventory: No response")
                     continue
