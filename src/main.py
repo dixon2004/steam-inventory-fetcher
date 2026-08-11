@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from utils.token import AuthorizationToken
 from steam.inventory import SteamAPI
 from utils.logger import SyncLogger
+from utils.cache import TTLCache
 import aiohttp
 import asyncio
 
@@ -15,6 +16,7 @@ async def lifespan(app: FastAPI):
     async with aiohttp.ClientSession() as session:
         app.state.steam = SteamAPI(session)
         app.state.auth = AuthorizationToken()
+        app.state.inventory_cache = TTLCache(ttl=30, max_size=100)
         yield
 
 
@@ -22,13 +24,19 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/health")
-async def health_check() -> dict:
+async def health_check(request: Request) -> dict:
     """
     Health check endpoint to verify that the API is running and responsive.
+    Also sweeps expired entries from the inventory cache.
 
     Returns:
         dict: A dictionary containing the status of the API.
     """
+    cache: TTLCache = request.app.state.inventory_cache
+    removed = cache.cleanup()
+    if removed:
+        logger.write_log("info", f"Cache cleanup removed {removed} expired entries")
+
     return {"status": "ok"}
 
 
@@ -49,10 +57,17 @@ async def get_steam_inventory(request: Request, steamID64, appID, contextID, api
     """
     steam: SteamAPI = request.app.state.steam
     auth: AuthorizationToken = request.app.state.auth
+    cache: TTLCache = request.app.state.inventory_cache
+    cache_key = f"{steamID64}:{appID}:{contextID}"
     try:
         if not auth.check_auth_token(api_key):
             logger.write_log("error", f"Failed to fetch user's steam inventory ({steamID64}): Invalid API key")
             raise HTTPException(status_code=401, detail="Invalid API key")
+
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            logger.write_log("info", f"Serving cached steam inventory ({steamID64})")
+            return cached_data
 
         inventory_data = await asyncio.wait_for(steam.get_user_inventory(steamID64, appID, contextID), timeout=60)
 
@@ -63,6 +78,8 @@ async def get_steam_inventory(request: Request, steamID64, appID, contextID, api
         inventory_data["steamID"] = str(steamID64)
         inventory_data["appID"] = int(appID)
         inventory_data["contextID"] = int(contextID)
+
+        cache.set(cache_key, inventory_data)
 
         logger.write_log("info", f"Successfully fetched user's steam inventory ({steamID64}) with {len(inventory_data.get('assets', []))} items")
         return inventory_data
