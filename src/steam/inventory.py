@@ -158,10 +158,18 @@ class SteamAPI:
 
                 more_items = response.get("more_items", 0)
                 last_assetid = response.get("last_assetid")
-                if more_items < 1 or not last_assetid:
+                if more_items < 1 or not last_assetid or last_assetid == start_assetid:
                     break
 
                 start_assetid = last_assetid
+
+            inventory_data.pop("more_items", None)
+            inventory_data.pop("last_assetid", None)
+
+            fetched = len(inventory_data.get("assets", []))
+            expected = inventory_data.get("total_inventory_count")
+            if expected is not None and fetched != expected:
+                self.logger.write_log("warning", f"Inventory incomplete: fetched {fetched} of {expected} assets")
 
             return inventory_data
         except Exception as e:
